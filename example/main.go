@@ -34,6 +34,13 @@ func main() {
 	}
 	cmdr.Add(job)
 
+	jobs := cmdr.GetJobs(true)
+	for _, j := range jobs {
+		fmt.Println("Current job list:" + j.(command).CmdId)
+	}
+
+	fmt.Println(cmdr.GetJob("command1").(command))
+
 	// These are just here for example sake.
 	// We would have a blocking call here irl.
 	time.Sleep(30 * time.Second)
@@ -60,6 +67,6 @@ func (cmd command) ScheduledTime() time.Time {
 }
 
 // Completed returns bool true if not nil assignment and exctime.
-func (cmd command) Completed() (time.Time, bool) {
-	return cmd.ExcTime, !cmd.ExcTime.IsZero()
+func (cmd command) Completed() bool {
+	return !cmd.ExcTime.IsZero()
 }
