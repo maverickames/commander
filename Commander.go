@@ -11,6 +11,7 @@ import (
 
 type Command interface {
 	// Task() bool
+	// May add a remove. I know this is getting long.
 	Start()
 	ScheduledTime() time.Time
 	TaskId() string
@@ -32,12 +33,15 @@ func NewCommander() Commander {
 }
 
 func (cmdRec *Commander) Run() {
-	defer fmt.Println("Exiting Commander")
+	defer fmt.Println("Exiting Commander") // this is just for testing.
 	for {
 		select {
 		case cmd := <-cmdRec.Disptach:
 
 			cmdRec.Commands[cmd.TaskId()] = cmd
+			// I know I could prob make this a function.
+			// Should I? I feel like it could stay here for more verboseness
+			// but I can underand wanting to move it out as well
 			go func() {
 				if cmd.ScheduledTime().Before(time.Now()) {
 					cmd.Start()
