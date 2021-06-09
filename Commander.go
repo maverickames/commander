@@ -5,91 +5,108 @@ This package provides a way to pass any command to the Commander for scheduling.
 */
 
 import (
+	"context"
+	"errors"
 	"fmt"
 	"time"
 )
 
 type Command interface {
-	Start()
+	Start() error
+	// TaskId() string
 	ScheduledTime() time.Time
-	TaskId() string
 	Completed() bool
 }
 
-type Commander struct {
-	Commands map[string]Command
-	Disptach chan Command
-	Done     chan bool
+type Response struct {
+	CmdId   string
+	RunTime time.Time
+	Err     error
 }
 
+type task struct {
+	ctx context.Context
+	cmd Command
+}
+
+type Commander struct {
+	taskId    TaskId
+	Disptach  chan task
+	Responder chan Response
+}
+
+type TaskId string
+
 // Returns a new Commander
-func NewCommander() Commander {
-	return Commander{
-		Commands: make(map[string]Command),
-		Disptach: make(chan Command),
-		Done:     make(chan bool),
+func NewCommander() *Commander {
+	return &Commander{
+		taskId:    "id",
+		Disptach:  make(chan task),
+		Responder: make(chan Response),
 	}
 }
 
 // Run will run in the background to manage all task.
 func (cmdRec *Commander) Run() {
-	defer fmt.Println("Exiting Commander") // this is just for testing.
+	defer close(cmdRec.Responder)
 	for {
 		select {
-		case cmd := <-cmdRec.Disptach:
+		case tsk, ok := <-cmdRec.Disptach:
+			if !ok {
+				return
+			}
 
-			cmdRec.Commands[cmd.TaskId()] = cmd
-			// I know I could prob make this a function.
-			// Should I? I feel like it could stay here for more verboseness
-			// but I can underand wanting to move it out as well
-			go func() {
-				if cmd.ScheduledTime().Before(time.Now()) {
-					cmd.Start()
-					return
+			// var id TaskId = "id"
+			ctxVal := tsk.ctx.Value(cmdRec.taskId)
+			if ctxVal == "" {
+				fmt.Println("context value not found value:", ctxVal)
+			}
+
+			// Run or queue task.
+			if tsk.cmd.ScheduledTime().Before(time.Now()) {
+				err := tsk.cmd.Start()
+				cmdRec.Responder <- Response{
+					CmdId:   ctxVal.(string),
+					RunTime: time.Now(),
+					Err:     err,
 				}
-				time.Sleep(cmd.ScheduledTime().Sub(time.Now()))
-				cmd.Start()
-
-			}()
-		case <-cmdRec.Done:
-			fmt.Println("done")
-			return
+			} else {
+				go func() {
+					for {
+						select {
+						case <-time.After(tsk.cmd.ScheduledTime().Sub(time.Now())):
+							err := tsk.cmd.Start()
+							cmdRec.Responder <- Response{
+								CmdId:   ctxVal.(string),
+								RunTime: time.Now(),
+								Err:     err,
+							}
+							return
+						case <-tsk.ctx.Done():
+							cmdRec.Responder <- Response{
+								CmdId:   ctxVal.(string),
+								RunTime: time.Now(),
+								Err:     errors.New("Context Cancel Request"),
+							}
+							return
+						}
+					}
+				}()
+			}
 		}
 	}
 }
 
 // Add task to the dispatcher
-func (cmdRec *Commander) Add(cmd Command) bool {
-	cmdRec.Disptach <- cmd
-	return true
-}
-
-// Get single task
-func (cmdRec *Commander) GetJob(cmdId string) Command {
-	return cmdRec.Commands[cmdId]
-}
-
-// Return all tasks currently managed by the Commander
-func (cmdRec *Commander) GetJobs(all bool) (cmdList []Command) {
-
-	for _, cmd := range cmdRec.Commands {
-		if all {
-			cmdList = append(cmdList, cmd)
-		} else if !cmd.Completed() {
-			cmdList = append(cmdList, cmd)
-		}
+func (cmdRec *Commander) Add(ctx context.Context, cmd Command) bool {
+	cmdRec.Disptach <- task{
+		ctx: ctx,
+		cmd: cmd,
 	}
-	return
-}
-
-// Remove task after its completed its life cycle.
-func (cmdRec *Commander) DelJob(cmdId string) (cmdList Command) {
-	cmdList = cmdRec.Commands[cmdId]
-	delete(cmdRec.Commands, cmdId)
-	return
+	return true
 }
 
 // Halts commander. Any task schedule will still complete.
 func (cmdRec *Commander) Halt() {
-	cmdRec.Done <- true
+	close(cmdRec.Disptach)
 }

@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -9,64 +8,71 @@ import (
 	"github.com/maverickames/commander"
 )
 
-type command struct {
-	// WSConn         *websocket.Conn `json:"-"`
-	WSConn         *os.File  `json:"-"` // This is jsut temporary until its tie into the websockets.
-	CmdId          string    // Command GUID
-	SchedTime      time.Time // Planned Runtime
-	ExcTime        time.Time // Actuall Execution Time
-	DispatchedTime time.Time // Dispatched and queued
-	Cmd            string    // Json data
-	//response       string    // Response from Sever //Still paying with this idea. Need more time to work it out.
+type App struct {
+	cmdr *commander.Commander
+	task map[string]command
 }
 
 func main() {
-	fmt.Println("Commander")
+	fmt.Println("Commander Example")
 
-	cmdr := commander.NewCommander()
-	go cmdr.Run()
+	// Setup
+	app := App{}
+	app.task = make(map[string]command)
+	app.cmdr = commander.NewCommander()
 
-	var job commander.Command = command{
+	// Commander responder channel. Handler errors
+	// process analytics.
+	go app.handleResponder()
+
+	// Commander to run in background routine to process task.
+	go app.cmdr.Run()
+
+	// Create and added task to dispatcher.
+	var task1 = command{
 		WSConn:    os.Stdout,
 		CmdId:     "command1",
 		SchedTime: time.Now().Add(20 * time.Second),
 		Cmd:       "do stuff",
 	}
-	cmdr.Add(job)
+	cancel := app.addTask(task1)
 
-	jobs := cmdr.GetJobs(true)
-	for _, j := range jobs {
-		fmt.Println("Current job list:" + j.(command).CmdId)
+	var task2 = command{
+		WSConn:    os.Stdout,
+		CmdId:     "command2",
+		SchedTime: time.Now().Add(10 * time.Second),
+		Cmd:       "do stuff",
+	}
+	app.addTask(task2)
+
+	var task3 = command{
+		WSConn:    os.Stdout,
+		CmdId:     "command3",
+		SchedTime: time.Now(),
+		Cmd:       "do stuff3",
+	}
+	app.addTask(task3)
+
+	// Cancel task1
+	cancel()
+	// Check what commands have been added.
+	fmt.Println(app.getTask("command1"))
+
+	// This is prob not going to work. As we dont get
+	// task ran time
+	tasks := app.getTasks(true)
+	for _, t := range tasks {
+		fmt.Println("Current job list:" + t.CmdId)
 	}
 
-	fmt.Println(cmdr.GetJob("command1").(command))
+	// Delete from local state after
+	// processing.
+	del := app.getTask("command1")
+	fmt.Printf("Deleted: %s\n", del.CmdId)
 
 	// These are just here for example sake.
 	// We would have a blocking call here irl.
 	time.Sleep(30 * time.Second)
-	cmdr.Halt()
+	app.cmdr.Halt()
 	time.Sleep(5 * time.Second)
-}
-
-func (cmd command) Start() {
-	jsonData, err := json.Marshal(cmd)
-	if err != nil {
-		fmt.Println(err)
-		// should handle errors over an erros chanell to provide a path up the app to the gui
-		//return app.em.ErrorHandler(err, nil, r.RequestURI)
-	}
-	cmd.WSConn.Write(jsonData)
-}
-
-func (cmd command) TaskId() string {
-	return cmd.CmdId
-}
-
-func (cmd command) ScheduledTime() time.Time {
-	return cmd.SchedTime
-}
-
-// Completed returns bool true if not nil assignment and exctime.
-func (cmd command) Completed() bool {
-	return !cmd.ExcTime.IsZero()
 }
