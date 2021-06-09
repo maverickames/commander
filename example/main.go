@@ -55,6 +55,7 @@ func main() {
 
 	// Cancel task1
 	cancel()
+
 	// Check what commands have been added.
 	fmt.Println(app.getTask("command1"))
 
