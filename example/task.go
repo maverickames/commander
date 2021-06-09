@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"os"
 	"time"
@@ -34,29 +33,35 @@ func (app *App) addTask(task command) context.CancelFunc {
 
 func (app *App) handleResponder() {
 	for taskResp := range app.cmdr.Responder {
+		// Handle errors
 		if taskResp.Err != nil {
 			fmt.Printf("Updating Task Details for: %s\n  -- Error: %s\n", taskResp.CmdId, taskResp.Err.Error())
 		} else {
 			fmt.Printf("Updating Task Details for: %s\n  -- Error: %s\n", taskResp.CmdId, "no errors")
 		}
+		app.updateTask(taskResp)
 	}
 }
 
-func (cmd command) Start() error {
-	jsonData, err := json.Marshal(cmd)
-	if err != nil {
-		return err
-	}
-	_, err = cmd.WSConn.Write(jsonData)
-	return err
+func (app *App) updateTask(resp commander.Response) {
+	cmd := app.getTask(resp.CmdId)
+	cmd.ExcTime = resp.ExcTime
+	cmd.DispatchedTime = resp.SchTime
+	app.task[resp.CmdId] = cmd
+}
+
+func (cmd command) Start() (time.Time, error) {
+	exctime := time.Now()
+	// jsonData, err := json.Marshal(cmd)
+	// if err != nil {
+	// 	return exctime, err
+	// }
+	_, err := cmd.WSConn.Write([]byte("Running command" + cmd.Cmd + " \n"))
+	return exctime, err
 }
 
 func (cmd command) ScheduledTime() time.Time {
 	return cmd.SchedTime
-}
-
-func (cmd command) TaskId() string {
-	return cmd.CmdId
 }
 
 // Completed returns bool true if not nil assignment and exctime.

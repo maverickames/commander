@@ -12,15 +12,15 @@ import (
 )
 
 type Command interface {
-	Start() error
-	// TaskId() string
+	Start() (time.Time, error)
 	ScheduledTime() time.Time
 	Completed() bool
 }
 
 type Response struct {
 	CmdId   string
-	RunTime time.Time
+	SchTime time.Time
+	ExcTime time.Time
 	Err     error
 }
 
@@ -61,13 +61,14 @@ func (cmdRec *Commander) Run() {
 			if ctxVal == "" {
 				fmt.Println("context value not found value:", ctxVal)
 			}
-
+			runTime := time.Now()
 			// Run or queue task.
 			if tsk.cmd.ScheduledTime().Before(time.Now()) {
-				err := tsk.cmd.Start()
+				exctime, err := tsk.cmd.Start()
 				cmdRec.Responder <- Response{
 					CmdId:   ctxVal.(string),
-					RunTime: time.Now(),
+					SchTime: runTime,
+					ExcTime: exctime,
 					Err:     err,
 				}
 			} else {
@@ -75,17 +76,18 @@ func (cmdRec *Commander) Run() {
 					for {
 						select {
 						case <-time.After(tsk.cmd.ScheduledTime().Sub(time.Now())):
-							err := tsk.cmd.Start()
+							exctime, err := tsk.cmd.Start()
 							cmdRec.Responder <- Response{
 								CmdId:   ctxVal.(string),
-								RunTime: time.Now(),
+								SchTime: runTime,
+								ExcTime: exctime,
 								Err:     err,
 							}
 							return
 						case <-tsk.ctx.Done():
 							cmdRec.Responder <- Response{
 								CmdId:   ctxVal.(string),
-								RunTime: time.Now(),
+								SchTime: runTime,
 								Err:     errors.New("Context Cancel Request"),
 							}
 							return

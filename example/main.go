@@ -33,7 +33,7 @@ func main() {
 		WSConn:    os.Stdout,
 		CmdId:     "command1",
 		SchedTime: time.Now().Add(20 * time.Second),
-		Cmd:       "do stuff",
+		Cmd:       "do stuff1",
 	}
 	cancel := app.addTask(task1)
 
@@ -41,7 +41,7 @@ func main() {
 		WSConn:    os.Stdout,
 		CmdId:     "command2",
 		SchedTime: time.Now().Add(10 * time.Second),
-		Cmd:       "do stuff",
+		Cmd:       "do stuff2",
 	}
 	app.addTask(task2)
 
@@ -59,13 +59,6 @@ func main() {
 	// Check what commands have been added.
 	fmt.Println(app.getTask("command1"))
 
-	// This is prob not going to work. As we dont get
-	// task ran time
-	tasks := app.getTasks(true)
-	for _, t := range tasks {
-		fmt.Println("Current job list:" + t.CmdId)
-	}
-
 	// Delete from local state after
 	// processing.
 	del := app.getTask("command1")
@@ -76,4 +69,10 @@ func main() {
 	time.Sleep(30 * time.Second)
 	app.cmdr.Halt()
 	time.Sleep(5 * time.Second)
+
+	// Display task with results
+	tasks := app.getTasks(true)
+	for _, t := range tasks {
+		fmt.Printf("TaskName:%s\n  --  ScheduleTime:%s\n  --  Dispatched:%s\n  --  ExecuteTime:%s\n", t.CmdId, t.SchedTime, t.DispatchedTime, t.ExcTime)
+	}
 }
