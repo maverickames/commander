@@ -65,12 +65,12 @@ func (cmdRec *Commander) Add(cmd Command) bool {
 }
 
 // Get single task
-func (cmdRec *Commander) GetJob(cmdId string) interface{} {
+func (cmdRec *Commander) GetJob(cmdId string) Command {
 	return cmdRec.Commands[cmdId]
 }
 
 // Return all tasks currently managed by the Commander
-func (cmdRec *Commander) GetJobs(all bool) (cmdList []interface{}) {
+func (cmdRec *Commander) GetJobs(all bool) (cmdList []Command) {
 
 	for _, cmd := range cmdRec.Commands {
 		if all {
@@ -83,7 +83,7 @@ func (cmdRec *Commander) GetJobs(all bool) (cmdList []interface{}) {
 }
 
 // Remove task after its completed its life cycle.
-func (cmdRec *Commander) DelJob(cmdId string) (cmdList interface{}) {
+func (cmdRec *Commander) DelJob(cmdId string) (cmdList Command) {
 	cmdList = cmdRec.Commands[cmdId]
 	delete(cmdRec.Commands, cmdId)
 	return
