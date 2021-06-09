@@ -35,7 +35,7 @@ func (app *App) addTask(task command) context.CancelFunc {
 func (app *App) handleResponder() {
 	for taskResp := range app.cmdr.Responder {
 		fmt.Println(taskResp)
-		fmt.Println("Updating Task Details")
+		fmt.Println("Updating Task Details for: ", taskResp.CmdId)
 	}
 }
 
