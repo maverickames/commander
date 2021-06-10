@@ -19,16 +19,23 @@ type command struct {
 	DispatchedTime time.Time // Dispatched and queued
 	Cmd            string    // Json data
 	//response       string    // Response from Sever //Still paying with this idea. Need more time to work it out.
+
+	Cancel context.CancelFunc
 }
 
-func (app *App) addTask(task command) context.CancelFunc {
-	app.task[task.CmdId] = task
+func (app *App) addTask(task command) {
+
 	task.id = "id"
 	ctx, cancel := context.WithCancel(context.Background())
 	ctxVal := context.WithValue(ctx, task.id, task.CmdId)
+	task.Cancel = cancel
+
+	// Add to commander
 	var newTask commander.Command = task
 	app.cmdr.Add(ctxVal, newTask)
-	return cancel
+
+	// Add to local task list.
+	app.task[task.CmdId] = task
 }
 
 func (app *App) handleResponder() {
@@ -43,11 +50,16 @@ func (app *App) handleResponder() {
 	}
 }
 
+// Update the task with the reponse dataß
 func (app *App) updateTask(resp commander.Response) {
 	cmd := app.getTask(resp.CmdId)
 	cmd.ExcTime = resp.ExcTime
 	cmd.DispatchedTime = resp.SchTime
 	app.task[resp.CmdId] = cmd
+}
+
+func (cmd command) cancel() {
+	cmd.Cancel()
 }
 
 func (cmd command) Start() (time.Time, error) {

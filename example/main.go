@@ -10,6 +10,11 @@ import (
 
 type App struct {
 	cmdr *commander.Commander
+
+	// This is only for testing.
+	// this should be replace with database
+	// or another store. Not concnerencey safe.
+	// race conditions.
 	task map[string]command
 }
 
@@ -35,7 +40,7 @@ func main() {
 		SchedTime: time.Now().Add(20 * time.Second),
 		Cmd:       "do stuff1",
 	}
-	cancel := app.addTask(task1)
+	app.addTask(task1)
 
 	var task2 = command{
 		WSConn:    os.Stdout,
@@ -53,10 +58,11 @@ func main() {
 	}
 	app.addTask(task3)
 
-	// Cancel task1
-	cancel()
+	// Get and Cancel task1
+	t1 := app.getTask("command1")
+	t1.cancel()
 
-	// Check what commands have been added.
+	// Get and print command.
 	fmt.Println(app.getTask("command1"))
 
 	// Delete from local state after
